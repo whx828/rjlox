@@ -1,5 +1,5 @@
-use crate::token::{Literal, Token, TokenType};
-use crate::Lox;
+use super::token::{Literal, Token, TokenType};
+use super::Lox;
 
 use std::collections::HashMap;
 use std::string::String;
@@ -57,7 +57,7 @@ impl Scanner<'_> {
         }
 
         self.tokens
-            .push(Token::new(TokenType::EOF, "".to_string(), None, self.line));
+            .push(Token::new(TokenType::EOF, "".to_string(), Literal::Nil, self.line));
 
         Vec::clone(&self.tokens)
     }
@@ -154,7 +154,7 @@ impl Scanner<'_> {
             .get((self.start + 1) as usize..self.current as usize)
             .unwrap();
         let value = String::from(slice);
-        self.add_token_full(TokenType::STRING, Some(Literal::Str(value)));
+        self.add_token_full(TokenType::STRING, Literal::Str(value));
     }
 
     fn number(&mut self) {
@@ -173,13 +173,13 @@ impl Scanner<'_> {
         // Double.parseDouble(source.substring(start, current))
         self.add_token_full(
             TokenType::NUMBER,
-            Some(Literal::Num(
+            Literal::Num(
                 self.source
                     .get(self.start as usize..self.current as usize)
                     .unwrap()
                     .parse::<f32>()
                     .unwrap(),
-            )),
+            ),
         )
     }
 
@@ -211,10 +211,10 @@ impl Scanner<'_> {
     }
 
     fn add_token(&mut self, token_type: TokenType) {
-        self.add_token_full(token_type, None);
+        self.add_token_full(token_type, Literal::Nil);
     }
 
-    fn add_token_full(&mut self, token_type: TokenType, literal: Option<Literal>) {
+    fn add_token_full(&mut self, token_type: TokenType, literal: Literal) {
         let a = self
             .source
             .get(self.start as usize..self.current as usize)

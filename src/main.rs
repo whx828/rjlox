@@ -1,11 +1,14 @@
 mod scanner;
 mod token;
+mod expr;
+mod parse;
 
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Write};
 use std::process::exit;
 
 use clap::Parser;
+use crate::token::{Token, TokenType};
 
 /// rjlox interpreter
 #[derive(Parser, Debug)]
@@ -39,6 +42,15 @@ impl Lox {
 
     pub fn error(&mut self, line: u32, message: &str) {
         self.report(line, "", message);
+    }
+
+    pub fn error_parse(&mut self, token: Token, message: &str) {
+        if token.token_type == TokenType::EOF {
+            self.report(token.line, "at end", message);
+        } else {
+            let x = format!("at '{}'", token.lexeme);
+            self.report(token.line, &x, message);
+        }
     }
 
     fn report(&mut self, line: u32, location: &str, message: &str) {
@@ -90,8 +102,13 @@ fn run_prompt(lox: &mut Lox) -> io::Result<()> {
 fn run(lox: &mut Lox, source: &str) {
     let mut scanner = scanner::Scanner::new(lox, source.to_string());
     let tokens = scanner.scan_tokens();
-    tokens
-        .into_iter()
-        .map(|token| println!("{token:?}"))
-        .collect()
+    let mut parser = parse::Parser::new(lox, tokens);
+    let expression = parser.parse();
+
+    // Stop if there was a syntax error.
+    if lox.had_error {
+        return;
+    }
+
+    println!("{expression:?}");
 }

@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Formatter, Result};
 
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum TokenType {
     // Single-character tokens.
     LeftParen,
@@ -52,26 +52,27 @@ pub enum TokenType {
     EOF,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Literal {
     Str(String),
     Num(f32),
+    Bool(bool),
+    Nil
 }
 
 #[derive(Clone)]
 pub struct Token {
-    token_type: TokenType,
-    lexeme: String,
-    literal: Option<Literal>,
-    #[allow(dead_code)]
-    line: u32,
+    pub token_type: TokenType,
+    pub lexeme: String,
+    pub literal: Literal,
+    pub line: u32,
 }
 
 impl Debug for Token {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         if self.lexeme.is_empty() {
             write!(f, "{:?}", self.token_type)
-        } else if self.literal.is_none() {
+        } else if self.literal == Literal::Nil {
             write!(f, "{:?} {}", self.token_type, self.lexeme)
         } else {
             write!(
@@ -87,7 +88,7 @@ impl Token {
     pub(crate) fn new(
         token_type: TokenType,
         lexeme: String,
-        literal: Option<Literal>,
+        literal: Literal,
         line: u32,
     ) -> Self {
         Token {
