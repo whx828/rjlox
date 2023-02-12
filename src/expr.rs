@@ -2,14 +2,14 @@ use super::token;
 use super::token::Token;
 
 pub trait Visitor<T> {
-    fn visit_binary_expr(&mut self, left: &Expr, operator: &Token, right: &Expr) -> T;
-    fn visit_grouping_expr(&mut self, expression: &Expr) -> T;
-    fn visit_literal_expr(&mut self, expr: &token::Literal) -> T;
-    fn visit_unary_expr(&mut self, operator: &Token, right: &Expr) -> T;
+    fn visit_binary_expr(&self, left: &Expr, operator: &Token, right: &Expr) -> T;
+    fn visit_grouping_expr(&self, expression: &Expr) -> T;
+    fn visit_literal_expr(&self, expr: &token::Literal) -> T;
+    fn visit_unary_expr(&self, operator: &Token, right: &Expr) -> T;
 }
 
 pub trait Acceptor<T> {
-    fn accept(&self, visitor: &mut dyn Visitor<T>) -> T;
+    fn accept(&self, visitor: &dyn Visitor<T>) -> T;
 }
 
 #[derive(Debug, Clone)]
@@ -28,11 +28,11 @@ pub enum Expr {
     Unary {
         operator: Token,
         right: Box<Expr>,
-    }
+    },
 }
 
 impl<T> Acceptor<T> for Expr {
-    fn accept(&self, visitor: &mut dyn Visitor<T>) -> T {
+    fn accept(&self, visitor: &dyn Visitor<T>) -> T {
         match self {
             Expr::Binary {
                 left,

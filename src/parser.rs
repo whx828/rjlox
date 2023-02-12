@@ -1,8 +1,8 @@
+use crate::expr::Expr;
+use crate::token::{Token, TokenType};
+use crate::{token, Lox};
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
-use crate::expr::Expr;
-use crate::{Lox, token};
-use crate::token::{Token, TokenType};
 
 #[derive(Debug)]
 pub struct ParseError;
@@ -33,7 +33,7 @@ impl Parser<'_> {
     pub fn parse(&mut self) -> Option<Expr> {
         match self.expression() {
             Ok(expression) => Some(expression),
-            Err(_e) => None
+            Err(_e) => None,
         }
     }
 
@@ -47,7 +47,7 @@ impl Parser<'_> {
         let mut left = self.comparison()?;
 
         // Rust 中没有可变参数列表，不得已使用 vec，但用切片应该是更好的选择
-        let types = vec![TokenType::BangEqual,TokenType::EqualEqual];
+        let types = vec![TokenType::BangEqual, TokenType::EqualEqual];
 
         while self.match_token(&types) {
             let operator = self.previous();
@@ -67,7 +67,12 @@ impl Parser<'_> {
     fn comparison(&mut self) -> Result<Expr, ParseError> {
         let mut left = self.term()?;
 
-        let types = vec![TokenType::GREATER, TokenType::GreaterEqual, TokenType::LESS,TokenType::LessEqual];
+        let types = vec![
+            TokenType::GREATER,
+            TokenType::GreaterEqual,
+            TokenType::LESS,
+            TokenType::LessEqual,
+        ];
 
         while self.match_token(&types) {
             let operator = self.previous();
@@ -87,12 +92,12 @@ impl Parser<'_> {
     fn term(&mut self) -> Result<Expr, ParseError> {
         let mut expr = self.factor()?;
 
-        let types = vec![TokenType::MINUS,TokenType::PLUS];
+        let types = vec![TokenType::MINUS, TokenType::PLUS];
 
         while self.match_token(&types) {
             let operator = self.previous();
             let right = self.factor()?;
-            expr = Expr::Binary{
+            expr = Expr::Binary {
                 left: Box::new(expr),
                 operator,
                 right: Box::new(right),
@@ -110,7 +115,7 @@ impl Parser<'_> {
         while self.match_token(&types) {
             let operator = self.previous();
             let right = self.unary()?;
-            expr = Expr::Binary{
+            expr = Expr::Binary {
                 left: Box::new(expr),
                 operator,
                 right: Box::new(right),
@@ -128,10 +133,10 @@ impl Parser<'_> {
             let operator = self.previous();
             let right = self.unary()?;
 
-            return Ok(Expr::Unary{
+            return Ok(Expr::Unary {
                 operator,
                 right: Box::new(right),
-            })
+            });
         }
 
         self.primary()
@@ -141,50 +146,41 @@ impl Parser<'_> {
     fn primary(&mut self) -> Result<Expr, ParseError> {
         if self.match_one_token(&TokenType::FALSE) {
             return Ok(Expr::Literal {
-                value: token::Literal::Bool(false)
-            })
+                value: token::Literal::Bool(false),
+            });
         }
 
         if self.match_one_token(&TokenType::TRUE) {
             return Ok(Expr::Literal {
-                value: token::Literal::Bool(true)
-            })
+                value: token::Literal::Bool(true),
+            });
         }
 
         if self.match_one_token(&TokenType::NIL) {
             return Ok(Expr::Literal {
-                value: token::Literal::Nil
-            })
+                value: token::Literal::Nil,
+            });
         }
 
         if self.match_one_token(&TokenType::STRING) {
             let value = self.previous().literal;
-            return Ok(Expr::Literal {
-                value
-            })
+            return Ok(Expr::Literal { value });
         }
 
         if self.match_one_token(&TokenType::NUMBER) {
             let value = self.previous().literal;
-            return Ok(Expr::Literal {
-                value
-            })
+            return Ok(Expr::Literal { value });
         }
 
         if self.match_one_token(&TokenType::LeftParen) {
             let expr = self.expression()?;
 
-            return match self.consume(
-                TokenType::RightParen,
-                "Expect ')' after expression."
-            ) {
-                Ok(_) => {
-                    Ok(Expr::Grouping {
-                        expression: Box::new(expr),
-                    })
-                },
-                Err(e) => Err(e)
-            }
+            return match self.consume(TokenType::RightParen, "Expect ')' after expression.") {
+                Ok(_) => Ok(Expr::Grouping {
+                    expression: Box::new(expr),
+                }),
+                Err(e) => Err(e),
+            };
         }
 
         Err(self.error(self.peek(), "Expect expression."))
@@ -193,7 +189,7 @@ impl Parser<'_> {
     fn match_token(&mut self, types: &Vec<TokenType>) -> bool {
         for token_type in types {
             if self.match_one_token(token_type) {
-                return true
+                return true;
             }
         }
 
@@ -211,7 +207,7 @@ impl Parser<'_> {
 
     fn consume(&mut self, token_type: TokenType, message: &str) -> Result<Token, ParseError> {
         if self.check(&token_type) {
-            return Ok(self.advance())
+            return Ok(self.advance());
         }
 
         Err(self.error(self.peek(), message))
@@ -228,14 +224,19 @@ impl Parser<'_> {
 
         while !self.is_at_end() {
             if self.previous().token_type == TokenType::SEMICOLON {
-                return
+                return;
             }
 
             match self.peek().token_type {
-                TokenType::CLASS | TokenType::FUN | TokenType::VAR |
-                TokenType::FOR | TokenType::IF | TokenType::WHILE |
-                TokenType::PRINT | TokenType::RETURN => return,
-                _ => ()
+                TokenType::CLASS
+                | TokenType::FUN
+                | TokenType::VAR
+                | TokenType::FOR
+                | TokenType::IF
+                | TokenType::WHILE
+                | TokenType::PRINT
+                | TokenType::RETURN => return,
+                _ => (),
             }
 
             self.advance();
@@ -244,7 +245,7 @@ impl Parser<'_> {
 
     fn check(&self, token_type: &TokenType) -> bool {
         if self.is_at_end() {
-            return false
+            return false;
         }
 
         self.peek().token_type == token_type.clone()
@@ -267,6 +268,9 @@ impl Parser<'_> {
     }
 
     fn previous(&self) -> Token {
-        self.tokens.get((self.current - 1) as usize).unwrap().to_owned()
+        self.tokens
+            .get((self.current - 1) as usize)
+            .unwrap()
+            .to_owned()
     }
 }

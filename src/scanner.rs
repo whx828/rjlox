@@ -56,8 +56,12 @@ impl Scanner<'_> {
             self.scan_token();
         }
 
-        self.tokens
-            .push(Token::new(TokenType::EOF, "".to_string(), Literal::Nil, self.line));
+        self.tokens.push(Token::new(
+            TokenType::EOF,
+            "".to_string(),
+            Literal::Nil,
+            self.line,
+        ));
 
         Vec::clone(&self.tokens)
     }

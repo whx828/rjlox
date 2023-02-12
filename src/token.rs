@@ -57,7 +57,7 @@ pub enum Literal {
     Str(String),
     Num(f32),
     Bool(bool),
-    Nil
+    Nil,
 }
 
 #[derive(Clone)]
@@ -85,12 +85,7 @@ impl Debug for Token {
 }
 
 impl Token {
-    pub(crate) fn new(
-        token_type: TokenType,
-        lexeme: String,
-        literal: Literal,
-        line: u32,
-    ) -> Self {
+    pub(crate) fn new(token_type: TokenType, lexeme: String, literal: Literal, line: u32) -> Self {
         Token {
             token_type,
             lexeme,

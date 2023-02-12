@@ -1,14 +1,17 @@
+mod expr;
+mod interpreter;
+mod object;
+mod parser;
 mod scanner;
 mod token;
-mod expr;
-mod parse;
 
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Write};
 use std::process::exit;
 
-use clap::Parser;
+use crate::interpreter::{Interpreter, RuntimeError};
 use crate::token::{Token, TokenType};
+use clap::Parser;
 
 /// rjlox interpreter
 #[derive(Parser, Debug)]
@@ -33,11 +36,15 @@ fn main() -> io::Result<()> {
 #[derive(Clone)]
 pub struct Lox {
     had_error: bool,
+    had_runtime_error: bool,
 }
 
 impl Lox {
     fn new() -> Self {
-        Lox { had_error: false }
+        Lox {
+            had_error: false,
+            had_runtime_error: false,
+        }
     }
 
     pub fn error(&mut self, line: u32, message: &str) {
@@ -51,6 +58,11 @@ impl Lox {
             let x = format!("at '{}'", token.lexeme);
             self.report(token.line, &x, message);
         }
+    }
+
+    pub fn runtime_error(&mut self, err: RuntimeError) {
+        println!("{} [line {} ]", err.message, err.token.line);
+        self.had_runtime_error = true;
     }
 
     fn report(&mut self, line: u32, location: &str, message: &str) {
@@ -73,6 +85,10 @@ fn run_file(mut lox: Lox, path: &str) -> io::Result<()> {
 
     if lox.had_error {
         exit(65);
+    }
+
+    if lox.had_runtime_error {
+        exit(70);
     }
 
     Ok(())
@@ -102,7 +118,7 @@ fn run_prompt(lox: &mut Lox) -> io::Result<()> {
 fn run(lox: &mut Lox, source: &str) {
     let mut scanner = scanner::Scanner::new(lox, source.to_string());
     let tokens = scanner.scan_tokens();
-    let mut parser = parse::Parser::new(lox, tokens);
+    let mut parser = parser::Parser::new(lox, tokens);
     let expression = parser.parse();
 
     // Stop if there was a syntax error.
@@ -110,5 +126,8 @@ fn run(lox: &mut Lox, source: &str) {
         return;
     }
 
-    println!("{expression:?}");
+    if let Some(expr) = expression {
+        let mut interpreter = Interpreter::new(lox);
+        interpreter.interpret(expr);
+    }
 }
