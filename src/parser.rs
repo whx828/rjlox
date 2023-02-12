@@ -3,6 +3,7 @@ use crate::token::{Token, TokenType};
 use crate::{token, Lox};
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
+use crate::stmt::Stmt;
 
 #[derive(Debug)]
 pub struct ParseError;
@@ -30,10 +31,52 @@ impl Parser<'_> {
         }
     }
 
-    pub fn parse(&mut self) -> Option<Expr> {
-        match self.expression() {
-            Ok(expression) => Some(expression),
-            Err(_e) => None,
+    // program → declaration* EOF ;
+    pub fn parse(&mut self) -> Vec<Stmt> {
+        let mut statements = Vec::new();
+
+        while !self.is_at_end() {
+            let stmt = self.statement();
+            match stmt {
+                Ok(stmt) => statements.push(stmt),
+                Err(_e) => ()
+            }
+        }
+
+        statements
+    }
+
+    // declaration → varDecl | statement ; // 这样设计是因为不允许在块里声明语句
+
+
+    // varDecl → "var" IDENTIFIER ( "=" expression )? ";" ;
+
+    // statement → exprStmt | printStmt ;
+    fn statement(&mut self) -> Result<Stmt, ParseError> {
+        if self.match_one_token(&TokenType::PRINT) {
+            self.print_statement()
+        } else {
+            self.expression_statement()
+        }
+    }
+
+    // printStmt → "print" expression ";" ;
+    fn print_statement(&mut self) -> Result<Stmt, ParseError> {
+        let value = self.expression().unwrap();
+
+        match self.consume(TokenType::SEMICOLON, "Expect ';' after value.") {
+            Ok(_) => Ok(Stmt::Print {expression: value}),
+            Err(e) => Err(e),
+        }
+    }
+
+    // exprStmt → expression ";" ;
+    fn expression_statement(&mut self) -> Result<Stmt, ParseError> {
+        let expr = self.expression().unwrap();
+
+        match self.consume(TokenType::SEMICOLON, "Expect ';' after expression.") {
+            Ok(_) => Ok(Stmt::Expression {expression: expr}),
+            Err(e) => Err(e),
         }
     }
 
@@ -142,7 +185,7 @@ impl Parser<'_> {
         self.primary()
     }
 
-    // primary → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
+    // primary → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER ;
     fn primary(&mut self) -> Result<Expr, ParseError> {
         if self.match_one_token(&TokenType::FALSE) {
             return Ok(Expr::Literal {

@@ -4,6 +4,7 @@ mod object;
 mod parser;
 mod scanner;
 mod token;
+mod stmt;
 
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Write};
@@ -119,15 +120,13 @@ fn run(lox: &mut Lox, source: &str) {
     let mut scanner = scanner::Scanner::new(lox, source.to_string());
     let tokens = scanner.scan_tokens();
     let mut parser = parser::Parser::new(lox, tokens);
-    let expression = parser.parse();
+    let statements = parser.parse();
 
     // Stop if there was a syntax error.
     if lox.had_error {
         return;
     }
 
-    if let Some(expr) = expression {
-        let mut interpreter = Interpreter::new(lox);
-        interpreter.interpret(expr);
-    }
+    let mut interpreter = Interpreter::new(lox);
+    interpreter.interpret(statements);
 }

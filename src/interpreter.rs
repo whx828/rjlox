@@ -1,4 +1,7 @@
-use crate::expr::{Acceptor, Expr, Visitor};
+use super::expr;
+use super::expr::{Acceptor as ExprAcceptor, Expr};
+use super::stmt;
+use super::stmt::{Acceptor as StmtAcceptor, Stmt};
 use crate::token::{Literal, Token, TokenType};
 use crate::Lox;
 use std::fmt::{Display, Formatter};
@@ -33,17 +36,16 @@ impl Interpreter<'_> {
         Interpreter { lox }
     }
 
-    pub fn interpret(&mut self, expr: Expr) -> Literal {
-        match self.evaluate(&expr) {
-            Ok(l) => {
-                println!("{l:?}");
-                l
-            }
-            Err(e) => {
+    pub fn interpret(&mut self, stmts: Vec<Stmt>) {
+        for stmt in stmts {
+            if let Err(e) = self.execute(&stmt) {
                 self.lox.runtime_error(e);
-                Literal::Nil
             }
         }
+    }
+
+    fn execute(&self, stmt: &Stmt) -> Result<(), RuntimeError> {
+        stmt.accept(self)
     }
 
     fn evaluate(&self, expr: &Expr) -> Result<Literal, RuntimeError> {
@@ -59,7 +61,7 @@ impl Interpreter<'_> {
     }
 }
 
-impl Visitor<Result<Literal, RuntimeError>> for Interpreter<'_> {
+impl expr::Visitor<Result<Literal, RuntimeError>> for Interpreter<'_> {
     fn visit_binary_expr(
         &self,
         left: &Expr,
@@ -160,6 +162,27 @@ impl Visitor<Result<Literal, RuntimeError>> for Interpreter<'_> {
             },
             TokenType::BANG => Ok(Literal::Bool(!self.is_truthy(right))),
             _ => Err(RuntimeError::new(operator, "Operand must be a number.")),
+        }
+    }
+}
+
+impl stmt::Visitor<Result<(), RuntimeError>> for Interpreter<'_> {
+    fn visit_expression_stmt(&self, expression: &Expr) -> Result<(), RuntimeError> {
+        match self.evaluate(expression) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e)
+        }
+    }
+
+    fn visit_print_stmt(&self, expression: &Expr) -> Result<(), RuntimeError> {
+        let value = self.evaluate(expression);
+
+        match value {
+            Ok(l) => {
+                println!("{l:?}");
+                Ok(())
+            },
+            Err(e) => Err(e)
         }
     }
 }
