@@ -5,6 +5,7 @@ mod parser;
 mod scanner;
 mod token;
 mod stmt;
+mod environment;
 
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Write};
@@ -13,6 +14,7 @@ use std::process::exit;
 use crate::interpreter::{Interpreter, RuntimeError};
 use crate::token::{Token, TokenType};
 use clap::Parser;
+use crate::environment::Environment;
 
 /// rjlox interpreter
 #[derive(Parser, Debug)]
@@ -76,13 +78,14 @@ fn run_file(mut lox: Lox, path: &str) -> io::Result<()> {
     let file = File::open(path)?;
     let reader = BufReader::new(file);
     let mut source = String::from("");
+    let mut env = Environment::new();
 
     for line in reader.lines() {
         source.push_str(&line.unwrap());
         source.push('\n');
     }
 
-    run(&mut lox, &source); // 对于 file，run 只运行一次
+    run(&mut lox, &source, &mut env); // 对于 file，run 只运行一次
 
     if lox.had_error {
         exit(65);
@@ -98,6 +101,7 @@ fn run_file(mut lox: Lox, path: &str) -> io::Result<()> {
 fn run_prompt(lox: &mut Lox) -> io::Result<()> {
     let stdin = io::stdin();
     let mut stdout = io::stdout();
+    let mut env = Environment::new();
 
     print!("> ");
     stdout.flush().unwrap();
@@ -105,7 +109,8 @@ fn run_prompt(lox: &mut Lox) -> io::Result<()> {
     let mut source = String::from("");
     for line in stdin.lock().lines() {
         source.push_str(&line?);
-        run(lox, &source); // 对于 prompt，run 运行若干次，有几次有效输入就运行几次
+
+        run(lox, &source, &mut env); // 对于 prompt，run 运行若干次，有几次有效输入就运行几次
         lox.had_error = false;
 
         source.clear();
@@ -116,7 +121,7 @@ fn run_prompt(lox: &mut Lox) -> io::Result<()> {
     Ok(())
 }
 
-fn run(lox: &mut Lox, source: &str) {
+fn run(lox: &mut Lox, source: &str, env: &mut Environment) {
     let mut scanner = scanner::Scanner::new(lox, source.to_string());
     let tokens = scanner.scan_tokens();
     let mut parser = parser::Parser::new(lox, tokens);
@@ -127,6 +132,6 @@ fn run(lox: &mut Lox, source: &str) {
         return;
     }
 
-    let mut interpreter = Interpreter::new(lox);
+    let mut interpreter = Interpreter::new(lox, env);
     interpreter.interpret(statements);
 }

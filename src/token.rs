@@ -60,7 +60,7 @@ pub enum Literal {
     Nil,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct Token {
     pub token_type: TokenType,
     pub lexeme: String,
