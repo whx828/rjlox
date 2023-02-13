@@ -1,6 +1,7 @@
 use super::token;
 use super::token::Token;
 
+
 pub trait Visitor<T> {
     fn visit_binary_expr(&mut self, left: &Expr, operator: &Token, right: &Expr) -> T;
     fn visit_grouping_expr(&mut self, expression: &Expr) -> T;
@@ -8,6 +9,7 @@ pub trait Visitor<T> {
     fn visit_unary_expr(&mut self, operator: &Token, right: &Expr) -> T;
     fn visit_var_expr(&mut self, name: &Token) -> T;
     fn visit_assign_expr(&mut self, name: &Token, value: &Expr) -> T;
+    fn visit_logic_expr(&mut self, left: &Expr, operator: &Token, right: &Expr) -> T;
 }
 
 pub trait Acceptor<T> {
@@ -18,7 +20,7 @@ pub trait Acceptor<T> {
 pub enum Expr {
     Assign {
         name: Token,
-        value: Box<Expr>
+        value: Box<Expr>,
     },
     Binary {
         left: Box<Expr>, // 注意自引用类型
@@ -37,7 +39,12 @@ pub enum Expr {
     },
     Variable {
         name: Token,
-    }
+    },
+    Logic {
+        left: Box<Expr>,
+        operator: Token,
+        right: Box<Expr>,
+    },
 }
 
 impl<T> Acceptor<T> for Expr {
@@ -51,8 +58,13 @@ impl<T> Acceptor<T> for Expr {
             Expr::Grouping { expression } => visitor.visit_grouping_expr(expression),
             Expr::Literal { value } => visitor.visit_literal_expr(value),
             Expr::Unary { operator, right } => visitor.visit_unary_expr(operator, right),
-            Expr::Variable {name} => visitor.visit_var_expr(name),
-            Expr::Assign {name, value} => visitor.visit_assign_expr(name, value)
+            Expr::Variable { name } => visitor.visit_var_expr(name),
+            Expr::Assign { name, value } => visitor.visit_assign_expr(name, value),
+            Expr::Logic {
+                left,
+                operator,
+                right,
+            } => visitor.visit_logic_expr(left, operator, right),
         }
     }
 }

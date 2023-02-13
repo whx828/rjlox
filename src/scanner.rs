@@ -1,10 +1,11 @@
+use super::error::lexer_error;
 use super::token::{Literal, Token, TokenType};
-use super::Lox;
 
 use std::collections::HashMap;
 use std::string::String;
 
 use lazy_static::lazy_static;
+
 
 lazy_static! {
     static ref KEYWORDS: HashMap<String, TokenType> = {
@@ -29,19 +30,17 @@ lazy_static! {
     };
 }
 
-pub struct Scanner<'scanner> {
-    lox: &'scanner mut Lox,
+pub struct Scanner {
     source: String,
     tokens: Vec<Token>,
-    start: u32,
-    current: u32,
-    line: u32,
+    start: usize,
+    current: usize,
+    line: usize,
 }
 
-impl Scanner<'_> {
-    pub fn new(lox: &mut Lox, source: String) -> Scanner {
+impl Scanner {
+    pub fn new(source: String) -> Scanner {
         Scanner {
-            lox,
             source,
             tokens: Vec::<Token>::new(),
             start: 0,
@@ -132,7 +131,7 @@ impl Scanner<'_> {
                 } else if c.is_alphabetic() || c == '_' {
                     self.identifier();
                 } else {
-                    self.lox.error(self.line, "Unexpected character.");
+                    lexer_error(self.line, "Unexpected character.");
                 }
             }
         }
@@ -147,7 +146,7 @@ impl Scanner<'_> {
         }
 
         if self.is_at_end() {
-            self.lox.error(self.line, "Unterminated string.");
+            lexer_error(self.line, "Unterminated string.");
             return;
         }
 
@@ -155,7 +154,7 @@ impl Scanner<'_> {
 
         let slice = self
             .source
-            .get((self.start + 1) as usize..self.current as usize)
+            .get(self.start + 1..self.current - 1)
             .unwrap();
         let value = String::from(slice);
         self.add_token_full(TokenType::STRING, Literal::Str(value));
@@ -179,7 +178,7 @@ impl Scanner<'_> {
             TokenType::NUMBER,
             Literal::Num(
                 self.source
-                    .get(self.start as usize..self.current as usize)
+                    .get(self.start..self.current)
                     .unwrap()
                     .parse::<f32>()
                     .unwrap(),
@@ -192,10 +191,7 @@ impl Scanner<'_> {
             self.advance();
         }
 
-        let text = self
-            .source
-            .get(self.start as usize..self.current as usize)
-            .unwrap();
+        let text = self.source.get(self.start..self.current).unwrap();
         let token_type_option = KEYWORDS.get(text);
 
         match token_type_option {
@@ -209,7 +205,7 @@ impl Scanner<'_> {
     }
 
     fn advance(&mut self) -> char {
-        let char = self.source.chars().nth(self.current as usize).unwrap();
+        let char = self.source.chars().nth(self.current).unwrap();
         self.current += 1;
         char
     }
@@ -219,10 +215,7 @@ impl Scanner<'_> {
     }
 
     fn add_token_full(&mut self, token_type: TokenType, literal: Literal) {
-        let a = self
-            .source
-            .get(self.start as usize..self.current as usize)
-            .unwrap();
+        let a = self.source.get(self.start..self.current).unwrap();
         let text = String::from(a);
         self.tokens
             .push(Token::new(token_type, text, literal, self.line));
@@ -233,7 +226,7 @@ impl Scanner<'_> {
             return false;
         }
 
-        if self.source.chars().nth(self.current as usize).unwrap() != expected {
+        if self.source.chars().nth(self.current).unwrap() != expected {
             return false;
         }
 
@@ -242,24 +235,21 @@ impl Scanner<'_> {
     }
 
     fn is_at_end(&self) -> bool {
-        self.current >= self.source.len() as u32
+        self.current >= self.source.len()
     }
 
     fn peek(&self) -> char {
         if self.is_at_end() {
             return '\n';
         }
-        self.source.chars().nth(self.current as usize).unwrap()
+        self.source.chars().nth(self.current).unwrap()
     }
 
     fn peek_next(&self) -> char {
-        if self.current + 1 >= self.source.len() as u32 {
+        if self.current + 1 >= self.source.len() {
             return '\0';
         }
 
-        self.source
-            .chars()
-            .nth((self.current + 1) as usize)
-            .unwrap()
+        self.source.chars().nth(self.current + 1).unwrap()
     }
 }

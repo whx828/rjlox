@@ -1,20 +1,23 @@
+mod environment;
+mod error;
 mod expr;
 mod interpreter;
 mod object;
 mod parser;
 mod scanner;
-mod token;
 mod stmt;
-mod environment;
+mod token;
 
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Write};
 use std::process::exit;
 
-use crate::interpreter::{Interpreter, RuntimeError};
-use crate::token::{Token, TokenType};
-use clap::Parser;
 use crate::environment::Environment;
+use crate::error::Error;
+use crate::error::Result;
+use crate::interpreter::Interpreter;
+use clap::Parser;
+
 
 /// rjlox interpreter
 #[derive(Parser, Debug)]
@@ -25,83 +28,39 @@ struct Args {
     run: Option<String>,
 }
 
-// note1: 最后在整个程序的层面进行 Rust 错误处理
 fn main() -> io::Result<()> {
     let args = Args::parse();
-    let mut lox = Lox::new();
 
     match args.run {
-        None => run_prompt(&mut lox),
-        Some(program_name) => run_file(lox, &program_name),
+        None => run_prompt(),
+        Some(program_name) => run_file(&program_name),
     }
 }
 
-#[derive(Clone)]
-pub struct Lox {
-    had_error: bool,
-    had_runtime_error: bool,
-}
-
-impl Lox {
-    fn new() -> Self {
-        Lox {
-            had_error: false,
-            had_runtime_error: false,
-        }
-    }
-
-    pub fn error(&mut self, line: u32, message: &str) {
-        self.report(line, "", message);
-    }
-
-    pub fn error_parse(&mut self, token: Token, message: &str) {
-        if token.token_type == TokenType::EOF {
-            self.report(token.line, "at end", message);
-        } else {
-            let x = format!("at '{}'", token.lexeme);
-            self.report(token.line, &x, message);
-        }
-    }
-
-    pub fn runtime_error(&mut self, err: RuntimeError) {
-        println!("{} [line {} ]", err.message, err.token.line);
-        self.had_runtime_error = true;
-    }
-
-    fn report(&mut self, line: u32, location: &str, message: &str) {
-        println!("[line {line} ] Error {location}: {message}");
-        self.had_error = true;
-    }
-}
-
-fn run_file(mut lox: Lox, path: &str) -> io::Result<()> {
+fn run_file(path: &str) -> io::Result<()> {
     let file = File::open(path)?;
     let reader = BufReader::new(file);
     let mut source = String::from("");
-    let mut env = Environment::new();
+    let env = Environment::new(None);
+    let mut interpreter = Interpreter::new(env);
 
     for line in reader.lines() {
         source.push_str(&line.unwrap());
         source.push('\n');
     }
 
-    run(&mut lox, &source, &mut env); // 对于 file，run 只运行一次
-
-    if lox.had_error {
-        exit(65);
-    }
-
-    if lox.had_runtime_error {
+    if run(&source, &mut interpreter).is_err() {
         exit(70);
-    }
+    };
 
     Ok(())
 }
 
-fn run_prompt(lox: &mut Lox) -> io::Result<()> {
+fn run_prompt() -> io::Result<()> {
     let stdin = io::stdin();
     let mut stdout = io::stdout();
-    let mut env = Environment::new();
+    let env = Environment::new(None);
+    let mut interpreter = Interpreter::new(env);
 
     print!("> ");
     stdout.flush().unwrap();
@@ -110,8 +69,7 @@ fn run_prompt(lox: &mut Lox) -> io::Result<()> {
     for line in stdin.lock().lines() {
         source.push_str(&line?);
 
-        run(lox, &source, &mut env); // 对于 prompt，run 运行若干次，有几次有效输入就运行几次
-        lox.had_error = false;
+        if run(&source, &mut interpreter).is_err() {};
 
         source.clear();
         print!("> ");
@@ -121,17 +79,14 @@ fn run_prompt(lox: &mut Lox) -> io::Result<()> {
     Ok(())
 }
 
-fn run(lox: &mut Lox, source: &str, env: &mut Environment) {
-    let mut scanner = scanner::Scanner::new(lox, source.to_string());
+fn run(source: &str, interpreter: &mut Interpreter) -> Result<()> {
+    let mut scanner = scanner::Scanner::new(source.to_string());
     let tokens = scanner.scan_tokens();
-    let mut parser = parser::Parser::new(lox, tokens);
-    let statements = parser.parse();
+    let mut parser = parser::Parser::new(tokens);
+    let statements = match parser.parse() {
+        Ok(result) => result,
+        _ => return Err(Error::ParseError(String::from("parse error"))),
+    };
 
-    // Stop if there was a syntax error.
-    if lox.had_error {
-        return;
-    }
-
-    let mut interpreter = Interpreter::new(lox, env);
-    interpreter.interpret(statements);
+    interpreter.interpret(statements)
 }

@@ -1,4 +1,6 @@
+use std::fmt;
 use std::fmt::{Debug, Formatter, Result};
+
 
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -60,24 +62,33 @@ pub enum Literal {
     Nil,
 }
 
+impl fmt::Display for Literal {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        match self {
+            Literal::Str(string) => write!(f, "{string}"),
+            Literal::Num(num) => write!(f, "{num}"),
+            Literal::Bool(bool) => write!(f, "{bool}"),
+            Literal::Nil => write!(f, "nil"),
+        }
+    }
+}
+
 #[derive(Clone, PartialEq)]
 pub struct Token {
     pub token_type: TokenType,
     pub lexeme: String,
     pub literal: Literal,
-    pub line: u32,
+    pub line: usize,
 }
 
 impl Debug for Token {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         if self.lexeme.is_empty() {
             write!(f, "{:?}", self.token_type)
-        } else if self.literal == Literal::Nil {
-            write!(f, "{:?} {}", self.token_type, self.lexeme)
         } else {
             write!(
                 f,
-                "{:?} {} {:?}",
+                "{:?} {} {}",
                 self.token_type, self.lexeme, self.literal
             )
         }
@@ -85,7 +96,12 @@ impl Debug for Token {
 }
 
 impl Token {
-    pub(crate) fn new(token_type: TokenType, lexeme: String, literal: Literal, line: u32) -> Self {
+    pub(crate) fn new(
+        token_type: TokenType,
+        lexeme: String,
+        literal: Literal,
+        line: usize,
+    ) -> Self {
         Token {
             token_type,
             lexeme,

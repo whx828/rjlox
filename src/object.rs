@@ -1,7 +1,16 @@
-use super::token::Literal;
+use super::token;
+use std::fmt;
 
-#[allow(dead_code)]
+
 #[derive(Debug, Clone)]
 pub enum Object {
-    Literal(Literal),
+    Literal(token::Literal),
+}
+
+impl fmt::Display for Object {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Object::Literal(l) => write!(f, "{l}"),
+        }
+    }
 }
