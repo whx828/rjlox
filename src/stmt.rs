@@ -1,7 +1,6 @@
 use crate::expr::Expr;
 use crate::token::Token;
 
-
 pub trait Visitor<T> {
     fn visit_expression_stmt(&mut self, expression: &Expr) -> T;
     fn visit_print_stmt(&mut self, expression: &Expr) -> T;
@@ -14,6 +13,7 @@ pub trait Visitor<T> {
         else_branch: &Option<Box<Stmt>>,
     ) -> T;
     fn visit_while_stmt(&mut self, condition: &Expr, body: &Stmt) -> T;
+    fn visit_fun_stmt(&mut self, name: &Token, params: &Vec<Token>, body: &Vec<Stmt>) -> T;
 }
 
 pub trait Acceptor<T> {
@@ -34,6 +34,11 @@ pub enum Stmt {
     },
     Block {
         stmts: Vec<Stmt>,
+    },
+    Function {
+        name: Token,
+        params: Vec<Token>,
+        body: Vec<Stmt>,
     },
     If {
         condition: Expr,
@@ -59,6 +64,7 @@ impl<T> Acceptor<T> for Stmt {
                 else_branch,
             } => visitor.visit_if_stmt(condition, then_branch, else_branch),
             Stmt::While { condition, body } => visitor.visit_while_stmt(condition, body),
+            Stmt::Function { name, params, body } => visitor.visit_fun_stmt(name, params, body),
         }
     }
 }

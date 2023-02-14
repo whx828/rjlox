@@ -1,3 +1,4 @@
+mod callable;
 mod environment;
 mod error;
 mod expr;
@@ -17,7 +18,6 @@ use crate::error::Error;
 use crate::error::Result;
 use crate::interpreter::Interpreter;
 use clap::Parser;
-
 
 /// rjlox interpreter
 #[derive(Parser, Debug)]
@@ -69,7 +69,7 @@ fn run_prompt() -> io::Result<()> {
     for line in stdin.lock().lines() {
         source.push_str(&line?);
 
-        if run(&source, &mut interpreter).is_err() {};
+        if run(&source, &mut interpreter).is_err() {}
 
         source.clear();
         print!("> ");

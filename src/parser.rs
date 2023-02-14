@@ -4,7 +4,6 @@ use crate::expr::Expr;
 use crate::stmt::Stmt;
 use crate::token::{Literal, Token, TokenType};
 
-
 type ParseResult<T> = Result<T, Error>;
 
 pub struct Parser {
@@ -28,10 +27,12 @@ impl Parser {
         Ok(statements)
     }
 
-    // declaration → varDecl | statement ; // 这样设计是因为不允许在块里声明语句
+    // declaration → funDecl | varDecl | statement ; // 这样设计是因为不允许在块里声明语句
     fn declaration(&mut self) -> ParseResult<Stmt> {
         let result = if self.match_one_token(&TokenType::VAR) {
             self.var_declaration()
+        } else if self.match_one_token(&TokenType::FUN) {
+            self.function("function")
         } else {
             self.statement()
         };
@@ -43,6 +44,40 @@ impl Parser {
                 Err(e)
             }
         }
+    }
+
+    // funDecl → "fun" function ;
+    // 辅助规则 function → IDENTIFIER "(" parameters? ")" block ;
+    //         parameters → IDENTIFIER ( "," IDENTIFIER )* ;
+    fn function(&mut self, fun: &str) -> ParseResult<Stmt> {
+        let mut message = format!("Expect {fun} name.");
+        let name = self.consume(TokenType::IDENTIFIER, &message)?;
+
+        message = format!("Expect '(' after {fun} name.");
+        self.consume(TokenType::LeftParen, &message)?;
+        let mut params = Vec::new();
+        if !self.check(&TokenType::RightParen) {
+            if params.len() >= 255 {
+                Self::error(self.peek(), "Can't have more than 255 arguments.");
+            }
+
+            params.push(self.consume(TokenType::IDENTIFIER, "Expect parameter name.")?);
+
+            while self.match_one_token(&TokenType::COMMA) {
+                if params.len() >= 255 {
+                    Self::error(self.peek(), "Can't have more than 255 arguments.");
+                }
+
+                params.push(self.consume(TokenType::IDENTIFIER, "Expect parameter name.")?);
+            }
+        }
+        self.consume(TokenType::RightParen, "Expect ')' after parameters.")?;
+
+        message = format!("Expect '{{' before {fun} body.");
+        self.consume(TokenType::LeftBrace, &message)?;
+        let body = self.block()?;
+
+        Ok(Stmt::Function { name, params, body })
     }
 
     // varDecl → "var" IDENTIFIER ( "=" expression )? ";" ;
@@ -146,7 +181,6 @@ impl Parser {
 
     // forStmt → "for" "(" ( varDecl | exprStmt | ";" ) expression? ";" expression? ")" statement ;
     fn for_statement(&mut self) -> ParseResult<Stmt> {
-        // todo
         self.consume(TokenType::LeftParen, "Expect '(' after 'for'.")?;
 
         let initializer = if self.match_one_token(&TokenType::SEMICOLON) {
@@ -161,7 +195,7 @@ impl Parser {
             self.expression()?
         } else {
             Expr::Literal {
-                value: Literal::Bool(true),
+                value: Literal::Bool(true), // 如果没条件，意味着 for 循环的条件判断句永远返回 true -> 死循环
             }
         };
         self.consume(TokenType::SEMICOLON, "Expect ';' after loop condition.")?;
@@ -180,15 +214,19 @@ impl Parser {
                     body,
                     Stmt::Expression {
                         expression: increment.unwrap(),
+                        // 这里不能直接用 ? 的原因是：函数返回 Result，而这里（如果写 ? 的话）是对 Option 进行操作
+                        // 遇到错误的话 return 的类型不匹配（会返回 None 而不是 Err）
                     },
                 ],
             }
         }
         body = Stmt::While {
+            // while 部分
             condition,
             body: Box::new(body),
         };
         if initializer.is_some() {
+            // 初始化部分
             body = Stmt::Block {
                 stmts: vec![initializer.unwrap(), body],
             }
@@ -271,6 +309,7 @@ impl Parser {
         let mut left = self.comparison()?;
 
         // Rust 中没有可变参数列表，不得已使用 vec，可能用切片是更好的选择
+        // todo 其实是有的，尴尬
         let types = vec![TokenType::BangEqual, TokenType::EqualEqual];
 
         while self.match_token(&types) {
@@ -349,7 +388,7 @@ impl Parser {
         Ok(expr)
     }
 
-    // unary → ( "!" | "-" ) unary | primary ;
+    // unary → ( "!" | "-" ) unary | call ; // 把函数调用看成一种运算符
     fn unary(&mut self) -> ParseResult<Expr> {
         let types = vec![TokenType::BANG, TokenType::MINUS];
 
@@ -363,7 +402,44 @@ impl Parser {
             });
         }
 
-        self.primary()
+        self.call()
+    }
+
+    // call → primary ( "(" arguments? ")" )* ;
+    fn call(&mut self) -> ParseResult<Expr> {
+        let mut expr = self.primary()?;
+        loop {
+            if self.match_one_token(&TokenType::LeftParen) {
+                expr = self.finish_call(expr.clone())?;
+            } else {
+                break;
+            }
+        }
+
+        Ok(expr)
+    }
+
+    // arguments → expression ( "," expression )* ;
+    fn finish_call(&mut self, callee: Expr) -> ParseResult<Expr> {
+        let mut arguments = Vec::new();
+        if !self.check(&TokenType::RightParen) {
+            arguments.push(self.expression()?);
+            while self.match_one_token(&TokenType::COMMA) {
+                if arguments.len() >= 255 {
+                    Self::error(self.peek(), "Can't have more than 255 arguments.");
+                }
+
+                arguments.push(self.expression()?);
+            }
+        }
+
+        let paren = self.consume(TokenType::RightParen, "Expect ')' after arguments.")?;
+
+        Ok(Expr::Call {
+            callee: Box::new(callee),
+            paren,
+            arguments,
+        })
     }
 
     // primary → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER ;

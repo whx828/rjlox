@@ -6,7 +6,6 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-
 #[derive(Debug, Clone)]
 pub struct Environment {
     enclosing: Option<Rc<Environment>>, // 一个父环境可以有多个子环境 -> Rc

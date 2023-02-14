@@ -1,7 +1,6 @@
 use std::fmt;
 use std::fmt::{Debug, Formatter, Result};
 
-
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum TokenType {
@@ -86,11 +85,7 @@ impl Debug for Token {
         if self.lexeme.is_empty() {
             write!(f, "{:?}", self.token_type)
         } else {
-            write!(
-                f,
-                "{:?} {} {}",
-                self.token_type, self.lexeme, self.literal
-            )
+            write!(f, "{:?} {} {}", self.token_type, self.lexeme, self.literal)
         }
     }
 }

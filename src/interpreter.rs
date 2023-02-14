@@ -3,28 +3,34 @@ use super::expr;
 use super::expr::{Acceptor as ExprAcceptor, Expr};
 use super::stmt;
 use super::stmt::{Acceptor as StmtAcceptor, Stmt};
+use crate::callable::Function;
+use crate::callable::{Callable, LoxCallable};
 use crate::environment::Environment;
 use crate::error::Error;
 use crate::object::Object;
 use crate::token::{Literal, Token, TokenType};
-use log::error;
 use std::rc::Rc;
-
 
 pub struct Interpreter {
     env: Rc<Environment>,
+    pub globals: Rc<Environment>,
 }
 
 impl Interpreter {
     pub fn new(env: Environment) -> Interpreter {
-        Interpreter { env: Rc::new(env) }
+        let env = Rc::new(env);
+        env.define("clock".to_string(), &Object::Callable(Callable::Clock));
+        Interpreter {
+            env: env.clone(),
+            globals: env.clone(),
+        }
     }
 
     pub fn interpret(&mut self, stmts: Vec<Stmt>) -> Result<()> {
         for stmt in stmts {
             match self.execute(&stmt) {
                 Ok(_) => {}
-                Err(r) => error!("{:?}", r),
+                Err(r) => println!("{:?}", r),
             }
         }
         Ok(())
@@ -34,7 +40,7 @@ impl Interpreter {
         stmt.accept(self)
     }
 
-    fn execute_block(&mut self, stmts: &Vec<Stmt>, env: Environment) -> Result<()> {
+    pub fn execute_block(&mut self, stmts: &Vec<Stmt>, env: Environment) -> Result<()> {
         let previous_env = self.env.clone();
         self.env = Rc::new(env);
 
@@ -60,6 +66,7 @@ impl Interpreter {
                 Literal::Bool(b) => b,
                 _ => true,
             },
+            _ => true,
         }
     }
 }
@@ -178,7 +185,8 @@ impl expr::Visitor<Result<Object>> for Interpreter {
         }
     }
 
-    fn visit_var_expr(&mut self, name: &Token) -> Result<Object> { // 变量表达式
+    fn visit_var_expr(&mut self, name: &Token) -> Result<Object> {
+        // 变量表达式
         self.env.get(name)
     }
 
@@ -202,6 +210,39 @@ impl expr::Visitor<Result<Object>> for Interpreter {
         }
 
         self.evaluate(right)
+    }
+
+    fn visit_call_expr(
+        &mut self,
+        callee: &Expr,
+        paren: &Token,
+        arguments: &Vec<Expr>,
+    ) -> Result<Object> {
+        let callee = self.evaluate(callee)?;
+
+        let mut args = Vec::new();
+        for argument in arguments {
+            args.push(self.evaluate(argument)?);
+        }
+
+        match callee {
+            Object::Callable(callable) => {
+                if args.len() != callable.arity() {
+                    let message = format!(
+                        "Expected {} arguments but got {}.",
+                        callable.arity(),
+                        args.len()
+                    );
+                    return Err(Error::RuntimeError(paren.to_owned(), message));
+                }
+
+                callable.call(self, args)
+            }
+            _ => Err(Error::RuntimeError(
+                paren.to_owned(),
+                String::from("Can only call functions and classes."),
+            )),
+        }
     }
 }
 
@@ -246,7 +287,7 @@ impl stmt::Visitor<Result<()>> for Interpreter {
 
         match else_branch {
             Some(else_branch) => self.execute(else_branch)?,
-            None => ()
+            None => (),
         }
 
         Ok(())
@@ -261,6 +302,20 @@ impl stmt::Visitor<Result<()>> for Interpreter {
                 break;
             }
         }
+
+        Ok(())
+    }
+
+    fn visit_fun_stmt(
+        &mut self,
+        name: &Token,
+        params: &Vec<Token>,
+        body: &Vec<Stmt>,
+    ) -> Result<()> {
+        let fun = Function::new(name.clone(), params.to_owned(), body.to_owned());
+        let function = Object::Callable(Callable::Function(fun));
+
+        self.env.define(name.clone().lexeme, &function);
 
         Ok(())
     }

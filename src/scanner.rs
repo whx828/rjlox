@@ -6,7 +6,6 @@ use std::string::String;
 
 use lazy_static::lazy_static;
 
-
 lazy_static! {
     static ref KEYWORDS: HashMap<String, TokenType> = {
         let mut keywords = HashMap::new();
@@ -152,10 +151,7 @@ impl Scanner {
 
         self.advance();
 
-        let slice = self
-            .source
-            .get(self.start + 1..self.current - 1)
-            .unwrap();
+        let slice = self.source.get(self.start + 1..self.current - 1).unwrap();
         let value = String::from(slice);
         self.add_token_full(TokenType::STRING, Literal::Str(value));
     }

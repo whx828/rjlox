@@ -1,6 +1,4 @@
 use super::token::{Token, TokenType};
-use log::error;
-
 
 #[derive(Debug, Clone)]
 pub enum Error {
@@ -11,14 +9,15 @@ pub enum Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 fn report(line: usize, place: &str, message: &str) {
-    error!("[line {}] Error {}: {}", line, place, message);
+    println!("[line {}] Error{}: {}", line, place, message);
 }
 
 pub fn parser_error(token: Token, message: &str) {
     if token.token_type == TokenType::EOF {
         report(token.line, " at end", message)
+    } else {
+        report(token.line, "", message)
     }
-    report(token.line, "", message)
 }
 
 pub fn lexer_error(line: usize, message: &str) {
