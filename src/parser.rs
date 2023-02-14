@@ -137,7 +137,9 @@ impl Parser {
     // returnStmt → "return" expression? ";" ;
     fn return_statement(&mut self) -> ParseResult<Stmt> {
         let keyword = self.previous();
-        let mut value = Expr::Literal {value: Literal::Nil};
+        let mut value = Expr::Literal {
+            value: Literal::Nil,
+        };
 
         if !self.check(&TokenType::SEMICOLON) {
             value = self.expression()?;
@@ -145,10 +147,7 @@ impl Parser {
 
         self.consume(TokenType::SEMICOLON, "Expect ';' after return value.")?;
 
-        Ok(Stmt::Return {
-            keyword,
-            value
-        })
+        Ok(Stmt::Return { keyword, value })
     }
 
     // printStmt → "print" expression ";" ;

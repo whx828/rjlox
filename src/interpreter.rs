@@ -9,11 +9,14 @@ use crate::environment::Environment;
 use crate::error::Error;
 use crate::object::Object;
 use crate::token::{Literal, Token, TokenType};
+use std::collections::HashMap;
 use std::rc::Rc;
 
+#[derive(Debug)]
 pub struct Interpreter {
     env: Rc<Environment>,
     pub globals: Rc<Environment>,
+    locals: HashMap<Expr, usize>,
 }
 
 impl Interpreter {
@@ -23,6 +26,7 @@ impl Interpreter {
         Interpreter {
             env: env.clone(),
             globals: env.clone(),
+            locals: HashMap::new(),
         }
     }
 
@@ -38,6 +42,10 @@ impl Interpreter {
 
     fn execute(&mut self, stmt: &Stmt) -> Result<()> {
         stmt.accept(self)
+    }
+
+    pub fn resolve(&mut self, expr: Expr, depth: usize) {
+        self.locals.insert(expr, depth);
     }
 
     pub fn execute_block(&mut self, stmts: &Vec<Stmt>, env: Environment) -> Result<()> {
@@ -67,6 +75,14 @@ impl Interpreter {
                 _ => true,
             },
             _ => true,
+        }
+    }
+
+    fn lookup_variable(&mut self, name: Token, expr: &Expr) -> Result<Object> {
+        let distance = self.locals.get(expr);
+        match distance {
+            Some(distance) => self.env.get_at(distance, &name.lexeme),
+            None => self.globals.get(&name),
         }
     }
 }
@@ -187,14 +203,19 @@ impl expr::Visitor<Result<Object>> for Interpreter {
 
     fn visit_var_expr(&mut self, name: &Token) -> Result<Object> {
         // 变量表达式
-        self.env.get(name)
+        let expr = Expr::Variable { name: name.clone() };
+        self.lookup_variable(name.to_owned(), &expr)
     }
 
     fn visit_assign_expr(&mut self, name: &Token, value: &Expr) -> Result<Object> {
-        let value = self.evaluate(value)?;
-        self.env.assign(name, &value)?;
+        let value_object = self.evaluate(value)?;
+        let distance = self.locals.get(value);
+        match distance {
+            Some(dis) => self.env.assign_at(dis, name, &value_object),
+            None => self.globals.assign(name, &value_object)?,
+        }
 
-        Ok(value)
+        Ok(value_object)
     }
 
     fn visit_logic_expr(&mut self, left: &Expr, operator: &Token, right: &Expr) -> Result<Object> {
@@ -323,7 +344,9 @@ impl stmt::Visitor<Result<()>> for Interpreter {
 
     fn visit_return_stmt(&mut self, _keyword: &Token, value: &Expr) -> Result<()> {
         let evaluated_value = match value {
-            Expr::Literal { value: Literal::Nil } => Object::Literal(Literal::Nil),
+            Expr::Literal {
+                value: Literal::Nil,
+            } => Object::Literal(Literal::Nil),
             _ => self.evaluate(&value)?,
         };
 

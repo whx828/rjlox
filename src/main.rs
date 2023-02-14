@@ -5,6 +5,7 @@ mod expr;
 mod interpreter;
 mod object;
 mod parser;
+mod resolver;
 mod scanner;
 mod stmt;
 mod token;
@@ -17,6 +18,7 @@ use crate::environment::Environment;
 use crate::error::Error;
 use crate::error::Result;
 use crate::interpreter::Interpreter;
+use crate::resolver::Resolver;
 use clap::Parser;
 
 /// rjlox interpreter
@@ -87,6 +89,12 @@ fn run(source: &str, interpreter: &mut Interpreter) -> Result<()> {
         Ok(result) => result,
         _ => return Err(Error::ParseError(String::from("parse error"))),
     };
+
+    let mut resolver = Resolver::new(interpreter);
+    match resolver.resolve_statements(&statements) {
+        Err(e) => print!("{:?}", e),
+        _ => (),
+    }
 
     interpreter.interpret(statements)
 }

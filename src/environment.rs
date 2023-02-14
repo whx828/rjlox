@@ -40,6 +40,22 @@ impl Environment {
         }
     }
 
+    pub fn get_at(&self, distance: &usize, name: &str) -> Result<Object> {
+        match self.ancestor(distance).values.borrow().get(name) {
+            Some(o) => Ok(o.to_owned()),
+            None => unreachable!(),
+        }
+    }
+
+    fn ancestor(&self, distance: &usize) -> Environment {
+        let mut env = self.clone();
+        for _i in 0..*distance {
+            env = Rc::get_mut(&mut env.enclosing.unwrap()).unwrap().clone();
+        }
+
+        env
+    }
+
     pub fn assign(&self, name: &Token, value: &Object) -> Result<()> {
         if self.values.borrow().contains_key(&name.lexeme) {
             // 如果该变量是在当前环境下定义的
@@ -61,5 +77,12 @@ impl Environment {
             name.clone(),
             format!("Undefined variable '{}'.", &name.lexeme),
         ))
+    }
+
+    pub fn assign_at(&self, distance: &usize, name: &Token, value: &Object) {
+        self.ancestor(distance)
+            .values
+            .borrow_mut()
+            .insert(name.lexeme.clone(), value.clone());
     }
 }

@@ -1,5 +1,5 @@
-use crate::expr::Expr;
-use crate::token::Token;
+use super::expr::Expr;
+use super::token::Token;
 
 pub trait Visitor<T> {
     fn visit_expression_stmt(&mut self, expression: &Expr) -> T;

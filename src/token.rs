@@ -1,8 +1,9 @@
 use std::fmt;
 use std::fmt::{Debug, Formatter, Result};
+use std::hash::{Hash, Hasher};
 
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum TokenType {
     // Single-character tokens.
     LeftParen,
@@ -53,7 +54,7 @@ pub enum TokenType {
     EOF,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum Literal {
     Str(String),
     Num(f32),
@@ -72,7 +73,32 @@ impl fmt::Display for Literal {
     }
 }
 
-#[derive(Clone, PartialEq)]
+impl Eq for Literal {}
+
+impl PartialEq for Literal {
+    fn eq(&self, other: &Literal) -> bool {
+        match (self, other) {
+            (Literal::Bool(a), Literal::Bool(b)) => a.eq(b),
+            (Literal::Str(a), Literal::Str(b)) => a.eq(b),
+            (Literal::Num(a), Literal::Num(b)) => a.eq(b),
+            (Literal::Nil, Literal::Nil) => true,
+            (_, _) => false,
+        }
+    }
+}
+
+impl Hash for Literal {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            Literal::Str(s) => s.hash(state),
+            Literal::Num(f) => f.to_bits().hash(state), // Rust 没有 f32/f64 hash 实现
+            Literal::Bool(b) => b.hash(state),
+            Literal::Nil => "".hash(state),
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Token {
     pub token_type: TokenType,
     pub lexeme: String,

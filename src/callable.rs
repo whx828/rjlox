@@ -6,10 +6,10 @@ use std::fmt;
 use std::rc::Rc;
 
 use crate::environment::Environment;
+use crate::error::Error;
 use crate::stmt::Stmt;
 use crate::token::Token;
 use chrono::prelude::*;
-use crate::error::Error;
 
 pub(crate) trait LoxCallable {
     fn arity(&self) -> usize;
@@ -31,8 +31,18 @@ pub struct Function {
 }
 
 impl Function {
-    pub fn new(name: Token, params: Vec<Token>, body: Vec<Stmt>, closure: Rc<Environment>) -> Function {
-        Function { name, params, body, closure }
+    pub fn new(
+        name: Token,
+        params: Vec<Token>,
+        body: Vec<Stmt>,
+        closure: Rc<Environment>,
+    ) -> Function {
+        Function {
+            name,
+            params,
+            body,
+            closure,
+        }
     }
 }
 
@@ -58,7 +68,7 @@ impl LoxCallable for Callable {
             Callable::Clock => {
                 let now = Local::now().timestamp_millis() / 1000_i64;
                 Ok(Object::Literal(Literal::Num(now as f32)))
-            },
+            }
             Callable::Function(function) => {
                 // 每个函数调用都有自己的环境来存储参数变量（运行时）
                 let env = Environment::new(Some(function.closure.clone()));
@@ -71,11 +81,13 @@ impl LoxCallable for Callable {
 
                 // 函数调用时通过 Error::Return 判断遇到了 return 语句，立刻返回 return 的值
                 match interpreter.execute_block(&function.body, env) {
-                    Err(e) => return match e {
-                        Error::Return(object) => Ok(object),
-                        _ => Err(e)
-                    },
-                    _ => ()
+                    Err(e) => {
+                        return match e {
+                            Error::Return(object) => Ok(object),
+                            _ => Err(e),
+                        }
+                    }
+                    _ => (),
                 }
 
                 Ok(Object::Literal(Literal::Nil))

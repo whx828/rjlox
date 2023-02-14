@@ -1,4 +1,4 @@
-use crate::object::Object;
+use super::object::Object;
 use super::token::{Token, TokenType};
 
 #[derive(Debug, Clone)]
@@ -6,6 +6,7 @@ pub enum Error {
     ParseError(String),
     RuntimeError(Token, String),
     Return(Object),
+    ResolveError(Token, String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
