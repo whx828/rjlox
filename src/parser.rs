@@ -103,7 +103,7 @@ impl Parser {
         })
     }
 
-    // statement → exprStmt | forStmt | ifStmt | printStmt | whileStmt | block ;
+    // statement → exprStmt | forStmt | ifStmt | printStmt | returnStmt | whileStmt | block ;
     fn statement(&mut self) -> ParseResult<Stmt> {
         if self.match_one_token(&TokenType::FOR) {
             return self.for_statement();
@@ -117,6 +117,10 @@ impl Parser {
             return self.print_statement();
         }
 
+        if self.match_one_token(&TokenType::RETURN) {
+            return self.return_statement();
+        }
+
         if self.match_one_token(&TokenType::WHILE) {
             return self.while_statement();
         }
@@ -128,6 +132,23 @@ impl Parser {
         }
 
         self.expression_statement()
+    }
+
+    // returnStmt → "return" expression? ";" ;
+    fn return_statement(&mut self) -> ParseResult<Stmt> {
+        let keyword = self.previous();
+        let mut value = Expr::Literal {value: Literal::Nil};
+
+        if !self.check(&TokenType::SEMICOLON) {
+            value = self.expression()?;
+        }
+
+        self.consume(TokenType::SEMICOLON, "Expect ';' after return value.")?;
+
+        Ok(Stmt::Return {
+            keyword,
+            value
+        })
     }
 
     // printStmt → "print" expression ";" ;

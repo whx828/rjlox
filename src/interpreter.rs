@@ -312,11 +312,22 @@ impl stmt::Visitor<Result<()>> for Interpreter {
         params: &Vec<Token>,
         body: &Vec<Stmt>,
     ) -> Result<()> {
-        let fun = Function::new(name.clone(), params.to_owned(), body.to_owned());
+        let closure = self.env.clone(); // 这是在声明函数时而不是在调用函数时处于活动状态的环境（声明时）
+        let fun = Function::new(name.clone(), params.to_owned(), body.to_owned(), closure);
         let function = Object::Callable(Callable::Function(fun));
 
         self.env.define(name.clone().lexeme, &function);
 
         Ok(())
+    }
+
+    fn visit_return_stmt(&mut self, _keyword: &Token, value: &Expr) -> Result<()> {
+        let evaluated_value = match value {
+            Expr::Literal { value: Literal::Nil } => Object::Literal(Literal::Nil),
+            _ => self.evaluate(&value)?,
+        };
+
+        // 通过 Err 把要 Return 的值带出来（;前面没有表达式的话就是 nil）
+        Err(Error::Return(evaluated_value))
     }
 }
