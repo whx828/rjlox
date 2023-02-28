@@ -40,20 +40,24 @@ impl Environment {
         }
     }
 
-    pub fn get_at(&self, distance: &usize, name: &str) -> Result<Object> {
-        match self.ancestor(distance).values.borrow().get(name) {
-            Some(o) => Ok(o.to_owned()),
-            None => unreachable!(),
+    pub fn get_at(&self, distance: &usize, name: &str) -> Option<Object> {
+        match self.ancestor(distance) {
+            Some(env) => { env.values.borrow().get(name).cloned() },
+            None => None
         }
     }
 
-    fn ancestor(&self, distance: &usize) -> Environment {
-        let mut env = self.clone();
-        for _i in 0..*distance {
-            env = Rc::get_mut(&mut env.enclosing.unwrap()).unwrap().clone();
+    fn ancestor(&self, distance: &usize) -> Option<Rc<Environment>> {
+        if *distance == 0 {
+            return None
         }
 
-        env
+        let mut env = self.clone().enclosing.unwrap();
+        for _ in 1..*distance {
+            env = env.enclosing.clone().unwrap();
+        }
+
+        Some(env)
     }
 
     pub fn assign(&self, name: &Token, value: &Object) -> Result<()> {
@@ -61,7 +65,7 @@ impl Environment {
             // 如果该变量是在当前环境下定义的
             self.values
                 .borrow_mut()
-                .insert(name.lexeme.clone(), value.clone()); // 那么就在当前环境下更新它的键值对
+                .insert(name.lexeme.clone(), value.to_owned().clone()); // 那么就在当前环境下更新它的键值对
             return Ok(());
         }
 
@@ -79,10 +83,15 @@ impl Environment {
         ))
     }
 
-    pub fn assign_at(&self, distance: &usize, name: &Token, value: &Object) {
-        self.ancestor(distance)
-            .values
-            .borrow_mut()
-            .insert(name.lexeme.clone(), value.clone());
+    pub fn assign_at(&self, distance: &usize, name: &Token, value: &Object) -> Option<()> {
+        match self.ancestor(distance) {
+            Some(env) => {
+                env.values
+                    .borrow_mut()
+                    .insert(name.lexeme.clone(), value.to_owned().clone());
+                Some(())
+            },
+            None => None
+        }
     }
 }

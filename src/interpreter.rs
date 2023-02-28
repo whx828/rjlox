@@ -21,11 +21,14 @@ pub struct Interpreter {
 
 impl Interpreter {
     pub fn new(env: Environment) -> Interpreter {
-        let env = Rc::new(env);
-        env.define("clock".to_string(), &Object::Callable(Callable::Clock));
+        let globals = Rc::new(env.clone());
+        globals.define("clock".to_string(), &Object::Callable(Callable::Clock));
+
+        let env = globals.clone();
+
         Interpreter {
-            env: env.clone(),
-            globals: env.clone(),
+            env,
+            globals,
             locals: HashMap::new(),
         }
     }
@@ -81,7 +84,10 @@ impl Interpreter {
     fn lookup_variable(&mut self, name: Token, expr: &Expr) -> Result<Object> {
         let distance = self.locals.get(expr);
         match distance {
-            Some(distance) => self.env.get_at(distance, &name.lexeme),
+            Some(distance) => match self.env.get_at(distance, &name.lexeme) {
+                Some(x) => Ok(x),
+                None => self.env.get(&name),
+            },
             None => self.globals.get(&name),
         }
     }
@@ -211,7 +217,10 @@ impl expr::Visitor<Result<Object>> for Interpreter {
         let value_object = self.evaluate(value)?;
         let distance = self.locals.get(value);
         match distance {
-            Some(dis) => self.env.assign_at(dis, name, &value_object),
+            Some(dis) => match self.env.assign_at(dis, name, &value_object) {
+                None => self.env.assign(name, &value_object)?,
+                _ => (),
+            },
             None => self.globals.assign(name, &value_object)?,
         }
 

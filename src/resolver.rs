@@ -56,6 +56,7 @@ impl<'res> Resolver<'res> {
         let enclosing_function = self.current_function.clone();
         self.current_function = fun_type;
 
+        // 为函数体创建一个新的作用域，然后为每个函数参数绑定变量
         self.begin_scope();
         for param in params {
             self.declare(param)?;
@@ -70,19 +71,15 @@ impl<'res> Resolver<'res> {
     }
 
     fn resolve_local(&mut self, expr: Expr, name: &Token) -> Result<()> {
-        if self.scopes.is_empty() {
-            return Ok(());
-        }
-
         for (nesting_layer, scope) in self.scopes.iter().enumerate().rev() {
             if scope.contains_key(&name.lexeme) {
                 self.interpreter
                     .resolve(expr, self.scopes.len() - 1 - nesting_layer);
                 return Ok(());
             }
-            // 如果遍历了所有的块作用域而未找到变量，我们就假设它是全局的
         }
 
+        // 如果遍历了所有的块作用域而未找到变量，我们就假设它是全局的
         Ok(())
     }
 
@@ -100,6 +97,7 @@ impl<'res> Resolver<'res> {
             ));
         }
 
+        // 该变量存在, 但 false 的含义是其"尚未准备好"──"未初始化"
         scope.insert(name.lexeme.clone(), false);
 
         Ok(())
@@ -111,7 +109,7 @@ impl<'res> Resolver<'res> {
         }
 
         let scope = self.scopes.last_mut().unwrap();
-        scope.insert(name.lexeme.clone(), true);
+        scope.insert(name.lexeme.clone(), true); // 将其标记为已初始化可供使用
     }
 
     fn begin_scope(&mut self) {
@@ -148,13 +146,15 @@ impl<'a> ExprVisitor<Result<()>> for Resolver<'a> {
     }
 
     fn visit_var_expr(&mut self, name: &Token) -> Result<()> {
-        if let Some(scope) = self.scopes.iter().peekable().peek() {
-            if let Some(var) = scope.get(&name.lexeme) {
-                if var == &false {
-                    return Err(Error::ResolveError(
-                        name.clone(),
-                        String::from("Cannot read local variable in its own initializer."),
-                    ));
+        if !self.scopes.is_empty() {
+            if let Some(scope) = self.scopes.iter().peekable().peek() {
+                if let Some(var) = scope.get(&name.lexeme) {
+                    if *var == false {
+                        return Err(Error::ResolveError(
+                            name.clone(),
+                            String::from("Cannot read local variable in its own initializer."),
+                        ));
+                    }
                 }
             }
         }
@@ -167,11 +167,7 @@ impl<'a> ExprVisitor<Result<()>> for Resolver<'a> {
 
     fn visit_assign_expr(&mut self, name: &Token, value: &Expr) -> Result<()> {
         self.resolve_expr(value)?;
-        let expr = Expr::Assign {
-            name: name.clone(),
-            value: Box::new(value.clone()),
-        };
-        self.resolve_local(expr, name)?;
+        self.resolve_local(value.clone(), name)?;
 
         Ok(())
     }
@@ -258,7 +254,9 @@ impl<'a> StmtVisitor<Result<()>> for Resolver<'a> {
         name: &Token,
         params: &Vec<Token>,
         body: &Vec<Stmt>,
-    ) -> Result<()> {
+    ) -> Result<()> { // 函数既绑定名称又引入作用域
+        // 在当前作用域内声明和定义函数名称
+        // 在解析函数体之前就定义了函数名称，这让函数可以在它自己的体内递归地引用自己
         self.declare(name)?;
         self.define(name);
 
